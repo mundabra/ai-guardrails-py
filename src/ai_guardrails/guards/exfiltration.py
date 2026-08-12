@@ -21,7 +21,7 @@ _BENIGN_PARAMS = re.compile(
 )
 
 _ENCODED_PARAM_RE = re.compile(
-    r"[?&]([^=&]+)=([A-Za-z0-9+/]{30,}={0,2}|[0-9a-fA-F]{30,})"
+    r"[?&]([^=&\s]{1,100})=([A-Za-z0-9+/]{30,4000}={0,2}|[0-9a-fA-F]{30,4000})"
 )
 
 _SUSPICIOUS = [

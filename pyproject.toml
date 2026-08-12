@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ai-guardrails-py"
-version = "0.1.4"
+version = "0.1.5"
 description = "Lightweight Python guardrails for LLM and agentic apps — prompt injection, PII, secrets, content safety. Zero dependencies."
 readme = "README.md"
 license = "MIT"
