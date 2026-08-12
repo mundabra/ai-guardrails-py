@@ -27,7 +27,7 @@ def test_datamark_wraps_content():
     assert is_marked(marked)
     assert 'source="gmail"' in marked
     # Wording preserves the ability to act on content.
-    assert "act on" in marked
+    assert "what the user asked" in marked
 
 
 def test_datamark_is_deterministic():
@@ -126,3 +126,18 @@ def test_corpus_name_must_be_a_packaged_identifier():
 
     with pytest.raises(ValueError):
         load_corpus("../../../etc/passwd")
+
+
+def test_envelope_overhead_stays_within_budget():
+    """The envelope rides on every untrusted tool result on every model call, so
+    its size is a recurring context and dollar cost. Kept under a budget on
+    purpose — if a future edit needs more room, raise this deliberately."""
+    overhead = len(datamark("", source="gmail"))
+    assert overhead < 260, f"envelope grew to {overhead} chars"
+
+
+def test_short_note_still_carries_the_three_load_bearing_ideas():
+    marked = datamark("body", source="gmail").lower()
+    assert "data" in marked                      # what the block is
+    assert "user asked" in marked                # the model may act on it
+    assert "not directives" in marked            # instructions inside are not orders
