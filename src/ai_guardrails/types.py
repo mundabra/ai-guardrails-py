@@ -45,14 +45,24 @@ def mask(value: str) -> str:
 
 
 def mask_url(url: str, limit: int = PREVIEW_MAX_CHARS) -> str:
-    """Preview a URL with its query string dropped.
+    """Reduce a URL to scheme + host for reporting.
 
-    For an exfiltration finding the query string *is* the stolen data — keeping
-    it in a report would re-leak precisely what the guard caught leaving.
+    For an exfiltration finding the URL *is* the stolen data, and a path carries
+    it just as well as a query string does
+    (``https://evil.example/4111111111111111/…``). Reporting either would
+    re-leak precisely what the guard caught leaving, into the consumer's logs
+    and audit database.
+
+    The host is kept deliberately: where the data was going is the actionable
+    part of the alert, and it is attacker-chosen rather than victim data.
     """
-    base = url.split("?", 1)[0].split("#", 1)[0]
-    had_query = len(base) != len(url)
-    return preview(base, limit) + ("?…" if had_query else "")
+    scheme, _, rest = url.partition("://")
+    if not rest:
+        scheme, rest = "", url
+    host = rest.split("/", 1)[0].split("?", 1)[0].split("#", 1)[0]
+    shown = f"{scheme}://{host}" if scheme else host
+    truncated = len(url) > len(shown)
+    return preview(shown, limit) + ("/…" if truncated else "")
 
 
 @dataclass(frozen=True)

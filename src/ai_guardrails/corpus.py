@@ -33,6 +33,10 @@ class Corpus:
 
 
 def _load_json(name: str) -> dict:
+    # Packaged data only: a corpus name is an identifier, never a path. Joining
+    # an unvalidated name would resolve outside the package.
+    if not re.fullmatch(r"[A-Za-z0-9_-]+\.json", name):
+        raise ValueError(f"invalid corpus name: {name!r}")
     with resources.files("ai_guardrails.data").joinpath(name).open(encoding="utf-8") as f:
         return json.load(f)
 
