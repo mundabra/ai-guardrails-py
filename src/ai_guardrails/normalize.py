@@ -58,7 +58,9 @@ _REPEATED_CHAR_RE = re.compile(r"(.)\1{2,}")
 
 _WHITESPACE_RE = re.compile(r"\s+")
 
-_PRINTABLE_RE = re.compile(r"^[\x20-\x7E\n\r\t]+$")
+# Readable decoded text: printable ASCII plus any non-control Unicode, so a
+# payload carrying an em dash or an accented letter is still decoded.
+_UNREADABLE_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]")
 
 _SINGLE_CHAR_WORD_RE = re.compile(r"\b[a-zA-Z]\b")
 _DEFRAG_RE = re.compile(r"\b([a-zA-Z])\s+(?=[a-zA-Z]\b)")
@@ -68,6 +70,9 @@ _HTML_ENTITY_MAP = {"lt": "<", "gt": ">", "amp": "&", "quot": '"', "apos": "'", 
 # ROT13 gate: only decode when it reveals injection keywords absent from the
 # raw text (normalize.ts step 7 — avoids false positives on normal prose).
 _INJECTION_KEYWORDS = ("ignore", "instruction", "system", "override", "admin")
+
+#: Tidying, not deobfuscation — see the note at the end of `normalize()`.
+_COSMETIC_STEPS = frozenset({"whitespace", "lowercase"})
 
 
 @dataclass(frozen=True)
@@ -98,7 +103,7 @@ def _decode_base64(m: re.Match[str]) -> str:
     except (binascii.Error, UnicodeDecodeError, ValueError):
         return raw
     # Only replace when the decoded text looks like readable text.
-    if len(decoded) >= 4 and _PRINTABLE_RE.match(decoded):
+    if len(decoded) >= 4 and not _UNREADABLE_RE.search(decoded):
         return decoded
     return raw
 
@@ -164,8 +169,14 @@ def normalize(text: str) -> NormalizeResult:
     # 13: lowercase for comparison
     apply("lowercase", text.lower())
 
+    # Only steps that undo deliberate obfuscation count as a signal.
+    # Collapsing whitespace and lowercasing fire on ordinary prose — any
+    # trailing newline, any multi-line document — so counting them handed a
+    # free bonus to essentially every real text and pushed borderline scores
+    # over the block threshold.
+    signal = [st for st in steps if st not in _COSMETIC_STEPS]
     return NormalizeResult(
         text=text,
-        was_normalized=len(steps) > 1,  # lowercase alone doesn't count
+        was_normalized=bool(signal),
         steps=tuple(steps),
     )

@@ -97,6 +97,9 @@ class Scan:
     action: Action
     verdicts: tuple[Verdict, ...] = ()
     normalization_steps: tuple[str, ...] = ()
+    #: The text the spans index into — kept so `redacted` can rewrite the whole
+    #: document. Never included in a report.
+    _source: str | None = None
 
     @property
     def findings(self) -> tuple[Finding, ...]:
@@ -108,6 +111,25 @@ class Scan:
     @property
     def flagged(self) -> bool:
         return self.action in ("warn", "block", "redact")
+
+    @property
+    def redacted(self) -> str | None:
+        """One rendering with EVERY guard's matches removed, or None if nothing
+        matched.
+
+        Individual verdicts each redact the original text, so they are mutually
+        exclusive — a caller that reads one of them keeps whatever the other
+        found. This merges the spans and applies them once.
+        """
+        from .redact import apply_redactions
+
+        spans = [f.span for f in self.findings if f.span]
+        if not spans or self._source is None:
+            return None
+        # A single placeholder for both kinds: the distinction is in the
+        # findings, and interleaving two markers over merged spans would be a
+        # lie about which one covered an overlap.
+        return apply_redactions(self._source, spans, "[REDACTED]")
 
 
 _ACTION_RANK: dict[str, int] = {"allow": 0, "warn": 1, "redact": 2, "block": 3}

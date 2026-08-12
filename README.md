@@ -49,8 +49,8 @@ context = datamark(email_body, source="gmail")
 
 # 4. Model output — secrets, PII, exfiltration links
 out = scan_output(reply_text, redact=True)
-if out.action == "redact":
-    reply_text = out.verdicts[1].redacted
+if out.redacted is not None:
+    reply_text = out.redacted   # one rendering, every guard applied
 ```
 
 ## What it catches
@@ -67,7 +67,11 @@ if out.action == "redact":
 
 **Actions are yours to interpret.** Guards return scores and categories; thresholds are config. `scan_*` returns `allow` / `warn` / `redact` / `block`, and your app decides what each one means.
 
-**`datamark()` (spotlighting).** The one defense with no false-positive cost: wrap untrusted content so the model treats embedded instructions as data. The default wording deliberately preserves the model's ability to *act on* the content — summarize it, reply to it — while refusing to take orders from it. Idempotent.
+**`datamark()` (spotlighting).** The one defense with no false-positive cost: wrap untrusted content so the model treats embedded instructions as data. The default wording deliberately preserves the model’s ability to *act on* the content — summarize it, reply to it — while refusing to take orders from it.
+
+The envelope is defended against the text it wraps: delimiters inside the content are neutralized so it cannot close the block early, and `datamark()` always wraps rather than skipping content that already looks marked — the note and tags are fixed strings, so "looks marked" would be an opt-out any attacker could take.
+
+**Redaction.** `Scan.redacted` is the accessor to use: one string with every guard’s matches removed, spans merged (they overlap), and text past the scan bound preserved. Individual `Verdict.redacted` values each rewrite the original text, so they are mutually exclusive.
 
 **`CachedScanner`.** Agentic loops re-scan a growing history on every model call; the LRU verdict cache (keyed by content hash) makes that cheap.
 

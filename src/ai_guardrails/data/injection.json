@@ -14,8 +14,8 @@
 
     { "category": "role_manipulation", "weight": 0.85, "re": "you are now (?:a |an )?(?:different|new|unrestricted|unfiltered)" },
     { "category": "role_manipulation", "weight": 0.8, "re": "(?:act|behave|respond|operate) (?:as|like) (?:a |an )?(?:different|new|unrestricted)" },
-    { "category": "role_manipulation", "weight": 0.6, "re": "pretend (?:you are|to be|that you)" },
-    { "category": "role_manipulation", "weight": 0.5, "re": "roleplay (?:as|that)" },
+    { "category": "role_manipulation", "weight": 0.35, "re": "pretend (?:you are|to be|that you)", "_note": "weak on its own: ordinary business prose says \"pretend you are the customer\". Only reaches the threshold alongside a real signal." },
+    { "category": "role_manipulation", "weight": 0.3, "re": "roleplay (?:as|that)" },
     { "category": "role_manipulation", "weight": 0.9, "re": "enter (?:developer|admin|debug|god|sudo|root) mode" },
     { "category": "role_manipulation", "weight": 0.95, "re": "\\b(?:DAN|STAN|DUDE|KEVIN)\\b.*mode" },
     { "category": "role_manipulation", "weight": 0.95, "re": "jailbreak" },

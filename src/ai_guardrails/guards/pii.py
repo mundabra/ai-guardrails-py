@@ -16,6 +16,7 @@ from ..patterns import (
     PHONE_RE,
     SSN_RE,
 )
+from ..redact import apply_redactions
 from ..types import Finding, Verdict, mask
 
 _ALL_TYPES = ("ssn", "credit_card", "email", "phone", "ip")
@@ -88,7 +89,16 @@ def scan_pii(
     action: str = "redact",
     redact_with: str = "[REDACTED]",
     allowlist: tuple[str, ...] = (),
+    max_chars: int | None = None,
+    document: str | None = None,
 ) -> Verdict:
+    """``document`` is the full text when ``content`` is a bounded prefix, so
+    redaction rewrites the whole document instead of truncating it."""
+    if action not in ("block", "redact"):
+        raise ValueError(f"unknown pii action: {action!r} (expected 'block' or 'redact')")
+    if max_chars is not None:
+        document = document if document is not None else content
+        content = content[:max_chars]
     findings = _find(content, types, allowlist)
     if not findings:
         return Verdict(action="allow", guard="pii")
@@ -106,10 +116,11 @@ def scan_pii(
             code="pii_detected",
         )
 
-    redacted = content
-    for f in sorted(findings, key=lambda x: x.span[0], reverse=True):  # type: ignore[index]
-        start, end = f.span  # type: ignore[misc]
-        redacted = redacted[:start] + redact_with + redacted[end:]
+    redacted = apply_redactions(
+        document if document is not None else content,
+        [f.span for f in findings if f.span],
+        redact_with,
+    )
     return Verdict(
         action="redact",
         guard="pii",

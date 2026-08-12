@@ -23,6 +23,7 @@ from ..patterns import (
     SSH_PRIVATE_KEY_RE,
     STRIPE_SECRET_RE,
 )
+from ..redact import apply_redactions
 from ..types import Finding, Verdict, mask
 
 _ALL_TYPES = (
@@ -77,7 +78,16 @@ def scan_secrets(
     *,
     types: tuple[str, ...] = _ALL_TYPES,
     action: str = "block",
+    max_chars: int | None = None,
+    document: str | None = None,
 ) -> Verdict:
+    """``document`` is the full text when ``content`` is a bounded prefix, so
+    redaction rewrites the whole document instead of truncating it."""
+    if action not in ("block", "redact"):
+        raise ValueError(f"unknown secrets action: {action!r} (expected 'block' or 'redact')")
+    if max_chars is not None:
+        document = document if document is not None else content
+        content = content[:max_chars]
     findings: list[Finding] = []
     seen_types: dict[str, None] = {}
 
@@ -101,17 +111,20 @@ def scan_secrets(
                         value_preview=mask(m.group(0)),
                     )
                 )
-                break  # one match per pattern is enough to flag the type
+                # Every occurrence is collected, not just the first: the redact
+                # path rewrites by span, so stopping early would leave the
+                # second and later secrets verbatim in "redacted" output.
 
     if not findings:
         return Verdict(action="allow", guard="secrets")
 
     kinds = ", ".join(seen_types)
     if action == "redact":
-        redacted = content
-        for f in sorted(findings, key=lambda x: x.span[0], reverse=True):  # type: ignore[index]
-            start, end = f.span  # type: ignore[misc]
-            redacted = redacted[:start] + "[SECRET_REDACTED]" + redacted[end:]
+        redacted = apply_redactions(
+            document if document is not None else content,
+            [f.span for f in findings if f.span],
+            "[SECRET_REDACTED]",
+        )
         return Verdict(
             action="redact",
             guard="secrets",

@@ -10,10 +10,21 @@ import re
 from ..patterns import HTML_IMG_RE, MARKDOWN_IMAGE_RE, MARKDOWN_LINK_RE
 from ..types import Finding, Verdict, mask_url
 
+# Query parameters that legitimately carry long opaque blobs. Signed download
+# links (S3/GCS presigned URLs, CDN tokens) are the biggest source of false
+# exfiltration reports, and a guard that cries wolf on every download link an
+# agent hands the user is a guard people switch off.
+_BENIGN_PARAMS = re.compile(
+    r"^(?:x-amz-[a-z0-9-]+|x-goog-[a-z0-9-]+|signature|sig|token|access_token|"
+    r"expires|se|sp|sr|sv|st|skoid|hmac|checksum|etag|key-pair-id|policy)$",
+    re.IGNORECASE,
+)
+
+_ENCODED_PARAM_RE = re.compile(
+    r"[?&]([^=&]+)=([A-Za-z0-9+/]{30,}={0,2}|[0-9a-fA-F]{30,})"
+)
+
 _SUSPICIOUS = [
-    re.compile(r"\?[^)]{100,}"),
-    re.compile(r"[?&][^=]+=(?:[A-Za-z0-9+/]{30,})"),
-    re.compile(r"[?&][^=]+=(?:[0-9a-fA-F]{30,})"),
     re.compile(
         r"(?:webhook\.site|requestbin|pipedream|hookbin|burpcollaborator|interact\.sh)",
         re.IGNORECASE,
@@ -22,7 +33,13 @@ _SUSPICIOUS = [
 
 
 def _suspicious(url: str) -> bool:
-    return any(p.search(url) for p in _SUSPICIOUS)
+    if any(p.search(url) for p in _SUSPICIOUS):
+        return True
+    # An opaque blob is a signal only on a parameter not expected to hold one.
+    return any(
+        not _BENIGN_PARAMS.match(name)
+        for name, _ in _ENCODED_PARAM_RE.findall(url)
+    )
 
 
 def scan_exfiltration(content: str) -> Verdict:

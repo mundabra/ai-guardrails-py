@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import threading
 from collections import OrderedDict
 
 from .guards.exfiltration import scan_exfiltration
@@ -57,7 +58,7 @@ def scan_input(text: str, *, max_chars: int = DEFAULT_MAX_SCAN_CHARS) -> Scan:
     """User-authored input: injection scoring only."""
     body = _bounded(text, max_chars)
     v = _safe("injection", scan_injection, body)
-    return Scan(action=v.action, verdicts=(v,))
+    return Scan(action=v.action, verdicts=(v,), _source=text)
 
 
 def scan_tool_result(
@@ -77,7 +78,7 @@ def scan_tool_result(
         _safe("secrets", scan_secrets, body, action="block"),
     )
     action = worst_action([v.action for v in verdicts])
-    return Scan(action=action, verdicts=verdicts)
+    return Scan(action=action, verdicts=verdicts, _source=text)
 
 
 def scan_output(
@@ -89,13 +90,14 @@ def scan_output(
     """Model output: secrets, PII, exfiltration. Log-only by default; set
     ``redact`` to have PII/secret verdicts carry a redacted rendering."""
     body = _bounded(text, max_chars)
+    mode = "redact" if redact else "block"
     verdicts = (
-        _safe("secrets", scan_secrets, body, action="redact" if redact else "block"),
-        _safe("pii", scan_pii, body, action="redact" if redact else "block"),
+        _safe("secrets", scan_secrets, body, action=mode, document=text),
+        _safe("pii", scan_pii, body, action=mode, document=text),
         _safe("exfiltration", scan_exfiltration, body),
     )
     action = worst_action([v.action for v in verdicts])
-    return Scan(action=action, verdicts=verdicts)
+    return Scan(action=action, verdicts=verdicts, _source=text)
 
 
 def report(scan: Scan, source_text: str) -> ScanReport:
@@ -128,17 +130,23 @@ class CachedScanner:
         self._cap = capacity
         self._max_chars = max_chars
         self._cache: OrderedDict[str, Scan] = OrderedDict()
+        # Agentic consumers share one scanner across worker threads (a turn
+        # thread and a fire-and-forget title/summary thread), and get/
+        # move_to_end on an OrderedDict is not atomic across them.
+        self._lock = threading.Lock()
 
     def _memo(self, key: str, compute) -> Scan:
-        hit = self._cache.get(key)
-        if hit is not None:
+        with self._lock:
+            hit = self._cache.get(key)
+            if hit is not None:
+                self._cache.move_to_end(key)
+                return hit
+        value = compute()  # outside the lock: guards are pure and can be slow
+        with self._lock:
+            self._cache[key] = value
             self._cache.move_to_end(key)
-            return hit
-        value = compute()
-        self._cache[key] = value
-        self._cache.move_to_end(key)
-        if len(self._cache) > self._cap:
-            self._cache.popitem(last=False)
+            if len(self._cache) > self._cap:
+                self._cache.popitem(last=False)
         return value
 
     def input(self, text: str) -> Scan:
