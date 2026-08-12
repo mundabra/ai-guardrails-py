@@ -1,0 +1,26 @@
+# ai-guardrails-py
+
+> Zero-dependency Python guardrails for LLM and agentic apps: prompt-injection scoring, encoding-bypass normalization, PII/secret/exfiltration detection, and spotlighting (datamarking) for untrusted tool content. Python sibling of the TypeScript library mundabra/ai-guardrails.
+
+Python 3.11+. MIT. No runtime dependencies. Guards are synchronous, fail-open, and never carry full sensitive content in their reports.
+
+## Core API
+
+- `scan_input(text) -> Scan` — user-authored input; injection scoring.
+- `scan_tool_result(source, text) -> Scan` — untrusted connector/tool output; injection + exfiltration + secrets. The main agentic surface.
+- `scan_output(text, redact=False) -> Scan` — model output; secrets, PII, exfiltration.
+- `datamark(text, source=...) -> str` — wrap untrusted content so embedded instructions are treated as data. Idempotent, no false-positive cost.
+- `CachedScanner()` — LRU verdict cache keyed by content hash, for loops that re-scan growing history.
+- `report(scan, text) -> ScanReport` — privacy-clean serialization (rule ids, categories, masked previews, content hash) for audit pipelines.
+
+`Scan.action` is one of `allow` / `warn` / `redact` / `block`; `Scan.findings` carry `guard`, `category`, `rule_id`, `weight`, and character `span`.
+
+## Docs
+
+- README.md — quick start, what it catches, API notes
+- AGENTS.md — invariants, layout, how to add patterns, testing discipline
+- src/ai_guardrails/data/injection.json — the pattern corpus as data
+
+## Known limits
+
+Pattern heuristics have low recall against adaptive attackers. Use as defense-in-depth alongside spotlighting, least-privilege tools, and human approval for consequential actions — not as a sole control.

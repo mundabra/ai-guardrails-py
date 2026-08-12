@@ -1,0 +1,55 @@
+{
+  "_source": "mundabra/ai-guardrails src/guards/input/injection.ts",
+  "defaults": { "block_threshold": 0.7, "warn_ratio": 0.5 },
+  "bonuses": { "was_normalized": 0.15, "multi_category_min": 3, "multi_category": 0.2 },
+  "patterns": [
+    { "category": "instruction_override", "weight": 0.9, "re": "ignore (?:all |any )?(?:previous|prior|above|earlier) (?:instructions?|prompts?|rules?|context)" },
+    { "category": "instruction_override", "weight": 0.9, "re": "disregard (?:all |any )?(?:previous|prior|above|earlier)" },
+    { "category": "instruction_override", "weight": 0.85, "re": "forget (?:everything|all|your) (?:previous|prior|instructions?)" },
+    { "category": "instruction_override", "weight": 0.8, "re": "(?:new|updated|revised|real) (?:instructions?|system prompt|directives?)" },
+    { "category": "instruction_override", "weight": 0.8, "re": "override (?:previous|prior|your|all|system)" },
+    { "category": "instruction_override", "weight": 0.85, "re": "do not follow (?:the |any )?(?:above|previous|prior|original)" },
+    { "category": "instruction_override", "weight": 0.6, "re": "instead,?\\s*(?:you (?:will|should|must)|do the following)" },
+    { "category": "instruction_override", "weight": 0.7, "re": "from now on,?\\s*(?:you (?:are|will|should|must))" },
+
+    { "category": "role_manipulation", "weight": 0.85, "re": "you are now (?:a |an )?(?:different|new|unrestricted|unfiltered)" },
+    { "category": "role_manipulation", "weight": 0.8, "re": "(?:act|behave|respond|operate) (?:as|like) (?:a |an )?(?:different|new|unrestricted)" },
+    { "category": "role_manipulation", "weight": 0.6, "re": "pretend (?:you are|to be|that you)" },
+    { "category": "role_manipulation", "weight": 0.5, "re": "roleplay (?:as|that)" },
+    { "category": "role_manipulation", "weight": 0.9, "re": "enter (?:developer|admin|debug|god|sudo|root) mode" },
+    { "category": "role_manipulation", "weight": 0.95, "re": "\\b(?:DAN|STAN|DUDE|KEVIN)\\b.*mode" },
+    { "category": "role_manipulation", "weight": 0.95, "re": "jailbreak" },
+    { "category": "role_manipulation", "weight": 0.85, "re": "you have no (?:restrictions|limitations|rules|guidelines)" },
+    { "category": "role_manipulation", "weight": 0.9, "re": "(?:remove|disable|ignore|bypass) (?:all |any )?(?:safety|content|ethical|moral) (?:filters?|guidelines?|restrictions?|rules?)" },
+
+    { "category": "prompt_extraction", "weight": 0.8, "re": "(?:reveal|show|display|print|output|repeat|tell me) (?:your |the )?(?:system|initial|original|hidden|secret) (?:prompt|instructions?|message|configuration)" },
+    { "category": "prompt_extraction", "weight": 0.75, "re": "what (?:are|were) your (?:original|initial|system|hidden|secret) (?:instructions?|prompt|rules?|directives?)" },
+    { "category": "prompt_extraction", "weight": 0.85, "re": "(?:dump|leak|expose|extract) (?:your |the )?(?:system|initial|full) (?:prompt|context|instructions?)" },
+
+    { "category": "structural", "weight": 0.7, "re": "#{3,}\\s*(?:system|instruction|new|admin|override)" },
+    { "category": "structural", "weight": 0.7, "re": "={3,}\\s*(?:system|instruction|new|admin)" },
+    { "category": "structural", "weight": 0.6, "re": "-{3,}\\s*(?:system|instruction|new|end of)" },
+    { "category": "structural", "weight": 0.7, "re": "\"\"\"\\s*(?:system|instruction|admin|ignore)" },
+    { "category": "structural", "weight": 0.95, "re": "<\\|(?:im_start|im_end|system|endoftext)\\|>" },
+    { "category": "structural", "weight": 0.9, "re": "\\[(?:SYSTEM|INST|/INST|SYS|/SYS)\\]" },
+    { "category": "structural", "weight": 0.8, "re": "<(?:system|instruction|admin|s|/s)>" },
+    { "category": "structural", "weight": 0.85, "re": "\\{\"role\":\\s*\"system\"" },
+
+    { "category": "agent_injection", "weight": 0.6, "re": "(?m)^(?:Thought|Action|Observation|Final Answer):" },
+    { "category": "agent_injection", "weight": 0.7, "re": "(?:tool_call|function_call|tool_result)\\s*[({]" },
+
+    { "category": "authority", "weight": 0.7, "re": "(?:as (?:your |the )?(?:administrator|admin|developer|creator|owner))" },
+    { "category": "authority", "weight": 0.4, "re": "(?:this is (?:an? )?(?:urgent|emergency|critical|priority))" },
+    { "category": "authority", "weight": 0.7, "re": "(?:i am (?:your |the )?(?:developer|creator|admin|administrator|owner))" },
+    { "category": "authority", "weight": 0.75, "re": "(?:authorized|permission|clearance) (?:to |for )?(?:override|bypass|ignore)" },
+
+    { "category": "exfiltration", "weight": 0.8, "re": "(?:encode|convert|translate) (?:the |all |this |your )?(?:above|previous|system|content|data|information) (?:to|into|as|in) (?:base64|hex|binary|rot13|morse)" },
+    { "category": "exfiltration", "weight": 0.5, "re": "(?:send|transmit|post|fetch|curl|wget) (?:to |the |this |all )?(?:https?://|data to)" },
+
+    { "category": "virtualization", "weight": 0.3, "re": "(?:imagine|suppose|hypothetically|in a (?:fictional|hypothetical) (?:world|scenario))" },
+    { "category": "virtualization", "weight": 0.2, "re": "(?:for (?:a |an )?(?:novel|story|fiction|creative writing|screenplay|roleplay))" },
+
+    { "category": "escalation", "weight": 0.4, "re": "(?:now that (?:we|you|i) (?:have|'ve) (?:established|confirmed|agreed))" },
+    { "category": "escalation", "weight": 0.3, "re": "(?:building on (?:what|our) (?:previous|earlier|above))" }
+  ]
+}
